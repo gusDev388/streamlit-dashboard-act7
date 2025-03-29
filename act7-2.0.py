@@ -10,6 +10,10 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense
 from datetime import datetime
 import yfinance as yf
+import torch
+from neuralprophet.configure import ConfigSeasonality
+
+torch.serialization.add_safe_globals({'neuralprophet.configure.ConfigSeasonality': ConfigSeasonality})
 
 # ======== Funciones de carga ========
 @st.cache_data
@@ -124,12 +128,17 @@ def arima_model(df):
     return model.forecast(30)
 
 def neural_prophet_model(df):
+    from neuralprophet.configure import ConfigSeasonality
+    import torch
+    torch.serialization.add_safe_globals({'neuralprophet.configure.ConfigSeasonality': ConfigSeasonality})
+    
     df_prophet = df[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
     model = NeuralProphet()
     model.fit(df_prophet, freq='D')
     future = model.make_future_dataframe(df_prophet, periods=30)
     forecast = model.predict(future)
     return forecast[['ds', 'yhat1']]
+
 
 def lstm_model(df):
     if len(df) < 60:
