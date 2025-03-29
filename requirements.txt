@@ -7,4 +7,5 @@ neuralprophet==0.8.0
 scikit-learn
 tensorflow==2.16.1
 keras
-holidays==0.41
+torch==2.1.2
+holidays>=0.41,<0.50
