@@ -1,0 +1,11 @@
+streamlit
+pandas
+numpy
+plotly
+yfinance
+keras
+tensorflow
+scikit-learn
+statsmodels
+neuralprophet==0.5.2
+holidays==0.28
