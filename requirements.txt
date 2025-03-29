@@ -1,11 +1,11 @@
-streamlit
+streamlit==1.38.0
 pandas
 numpy
 plotly
 yfinance
-keras
-tensorflow
-scikit-learn
 statsmodels
-neuralprophet==0.5.2
-holidays==0.28
+neuralprophet==0.8.0
+scikit-learn
+tensorflow==2.16.1
+keras
+holidays==0.23
