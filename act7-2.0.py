@@ -4,16 +4,12 @@ import numpy as np
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from statsmodels.tsa.arima.model import ARIMA
-from neuralprophet import NeuralProphet
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
 from keras.layers import LSTM, Dense
 from datetime import datetime
 import yfinance as yf
-import torch
-from neuralprophet.configure import ConfigSeasonality
-
-torch.serialization.add_safe_globals({'neuralprophet.configure.ConfigSeasonality': ConfigSeasonality})
 
 # ======== Funciones de carga ========
 @st.cache_data
@@ -99,7 +95,7 @@ def plot_chart(df, chart_type, indicators):
     fig.update_layout(title='Gráfico con Indicadores', xaxis_title='Fecha', yaxis_title='Precio')
     return fig
 
-# ======== Gráfico con Subgráficos y Comparación ========
+# ======== Comparación Subgráfica ========
 def plot_comparison_chart(df1, df2, symbol1, symbol2):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.1,
                         subplot_titles=(f"Precio de {symbol1}", f"Precio de {symbol2}"))
@@ -113,10 +109,8 @@ def plot_comparison_chart(df1, df2, symbol1, symbol2):
 
 # ======== Visualización de Predicciones ========
 def display_forecast_chart(predictions, model_name):
-    df = pd.DataFrame({
-        "Día": list(range(1, len(predictions)+1)),
-        "Predicción": predictions.flatten() if predictions.ndim > 1 else predictions
-    })
+    df = pd.DataFrame({"Día": list(range(1, len(predictions)+1)),
+                       "Predicción": predictions.flatten() if predictions.ndim > 1 else predictions})
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df['Día'], y=df['Predicción'], mode='lines+markers', name='Predicción'))
     fig.update_layout(title=f"Predicción de Precios - {model_name}", xaxis_title="Día", yaxis_title="Precio")
@@ -127,18 +121,9 @@ def arima_model(df):
     model = ARIMA(df['Close'], order=(5, 1, 0)).fit()
     return model.forecast(30)
 
-def neural_prophet_model(df):
-    from neuralprophet.configure import ConfigSeasonality
-    import torch
-    torch.serialization.add_safe_globals({'neuralprophet.configure.ConfigSeasonality': ConfigSeasonality})
-    
-    df_prophet = df[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
-    model = NeuralProphet()
-    model.fit(df_prophet, freq='D')
-    future = model.make_future_dataframe(df_prophet, periods=30)
-    forecast = model.predict(future)
-    return forecast[['ds', 'yhat1']]
-
+def smoothing_model(df):
+    model = ExponentialSmoothing(df['Close'], trend='add', seasonal=None).fit()
+    return model.forecast(30)
 
 def lstm_model(df):
     if len(df) < 60:
@@ -167,15 +152,15 @@ def lstm_model(df):
 def model_description(model_choice):
     if model_choice == 'ARIMA':
         return """
-        **ARIMA (Autoregressive Integrated Moving Average)** es un modelo estadístico útil para pronosticar series temporales que muestran tendencia o estacionalidad. Captura patrones de autocorrelación y variaciones temporales.
+        **ARIMA** es un modelo estadístico útil para pronosticar series temporales que muestran tendencia o estacionalidad.
         """
-    elif model_choice == 'NeuralProphet':
+    elif model_choice == 'Suavizado Exponencial':
         return """
-        **NeuralProphet** es una extensión de Facebook Prophet que usa redes neuronales para capturar patrones complejos, estacionales y no lineales en series temporales.
+        **Suavizado Exponencial** (Holt-Winters) es una técnica simple y efectiva para modelar series temporales.
         """
     elif model_choice == 'LSTM':
         return """
-        **LSTM (Long Short-Term Memory)** es una red neuronal recurrente especializada en aprender dependencias a largo plazo, ideal para series temporales con comportamientos no lineales.
+        **LSTM** es una red neuronal recurrente útil para capturar relaciones no lineales en series temporales.
         """
     return ""
 
@@ -203,19 +188,17 @@ try:
         change_color = 'green' if change > 0 else 'red' if change < 0 else 'black'
         st.markdown(f"<span style='color:{change_color}'>{change_text}</span>", unsafe_allow_html=True)
 
-    # Gráfico principal
     st.plotly_chart(plot_chart(df_data, chart_type, indicators))
 
-    model_choice = st.selectbox("Selecciona un modelo:", ['ARIMA', 'NeuralProphet', 'LSTM'])
+    model_choice = st.selectbox("Selecciona un modelo:", ['ARIMA', 'Suavizado Exponencial', 'LSTM'])
     st.markdown(model_description(model_choice))
 
     if model_choice == 'ARIMA':
         forecast = arima_model(df_data)
         display_forecast_chart(forecast, "ARIMA")
-    elif model_choice == 'NeuralProphet':
-        forecast_df = neural_prophet_model(df_data)
-        forecast = forecast_df['yhat1'].values
-        display_forecast_chart(forecast, "NeuralProphet")
+    elif model_choice == 'Suavizado Exponencial':
+        forecast = smoothing_model(df_data)
+        display_forecast_chart(forecast, "Suavizado Exponencial")
     elif model_choice == 'LSTM':
         forecast = lstm_model(df_data)
         display_forecast_chart(forecast, "LSTM")
